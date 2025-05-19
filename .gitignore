@@ -7,3 +7,6 @@ Topology Generator/*.png
 # All images & html files in here
 *.png
 *.html
+
+# Pycache (I keep forgetting this damn it)
+__pycache__/

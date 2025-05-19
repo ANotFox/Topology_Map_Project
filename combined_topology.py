@@ -184,6 +184,7 @@ Location: {item.get('location', 'N/A')}
         process_connections(data["storage"], "storage")
         process_connections(data["backup"], "backup")
     logger.info("PNG topology diagram generated.")
+
 # --- Interactive HTML Topology Generation ---
 def generate_interactive_topology(data):
     output_path = "HPE_topology.html"
@@ -340,48 +341,20 @@ def generate_interactive_topology(data):
         margin=dict(l=20, r=20, t=40, b=20),
         plot_bgcolor='white', paper_bgcolor='white', width=1000, height=800
     )
-    # --- 4. Generate HTML with Auto-Refresh ---
-    refresh_interval_seconds = 10
-    meta_refresh_tag = f'<meta http-equiv="refresh" content="{refresh_interval_seconds}">'
-    html_content = pio.to_html(fig, full_html=True, include_plotlyjs='cdn')
-
-    if "<head>" in html_content:
-        html_content = html_content.replace("<head>", f"<head>\n    {meta_refresh_tag}", 1)
-    elif "<html>" in html_content:
-         html_content = html_content.replace("<html>", f"<html>\n<head>\n    {meta_refresh_tag}\n</head>", 1)
-    else: # Fallback
-        html_content = f"<html><head>{meta_refresh_tag}</head><body>{html_content}</body></html>"
-
-    try:
-        with open(output_path, 'w', encoding='utf-8') as f:
-            f.write(html_content)
-        logger.info(f"Interactive topology saved to {output_path} with auto-refresh ({refresh_interval_seconds}s).")
-    except IOError as e:
-        logger.error(f"Failed to write HTML file {output_path}: {e}")
-        return None
-    return os.path.abspath(output_path)
+    pio.write_html(fig, file=output_path, auto_open=False)
+    logger.info(f"Interactive topology saved to {output_path}")
+    abs_path = os.path.abspath(output_path)
+    logger.info(f"Attempting to open {abs_path} in web browser...")
+    webbrowser.open_new_tab(f"file://{abs_path}")
 
 # --- Monitor and Update Both Outputs ---
-_interactive_browser_opened_once = False # Flag to track if browser was opened
-
 def update_all():
-    global _interactive_browser_opened_once
-    logger.info("Fetching data and regenerating outputs...")
     data = fetch_data_from_supabase()
     if not data:
-        logger.error("Could not fetch data from Supabase. Skipping output generation.")
+        logger.error("Could not fetch data from Supabase.")
         return
-
     generate_png_topology(data)
-    interactive_html_path = generate_interactive_topology(data)
-
-    if interactive_html_path and not _interactive_browser_opened_once:
-        try:
-            webbrowser.open(f"file://{interactive_html_path}", new=0, autoraise=True)
-            logger.info(f"Opened interactive topology in browser: file://{interactive_html_path}")
-            _interactive_browser_opened_once = True
-        except Exception as e:
-            logger.error(f"Could not open browser for interactive topology: {e}")
+    generate_interactive_topology(data)
 
 class DatabaseMonitor:
     def __init__(self, update_function, check_interval=30):
